@@ -3,7 +3,7 @@
 :root {
   font-family: "DM Sans", sans-serif;
   color: #18243a;
-  background: #f2f5fc;
+  background: #241b19;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -33,10 +33,10 @@ button { cursor: pointer; }
   overflow: hidden;
   padding: 48px;
   background:
-    radial-gradient(ellipse at 9% 14%, #cfe0ff 0, transparent 31%),
-    radial-gradient(ellipse at 91% 18%, #ffe2b8 0, transparent 25%),
-    radial-gradient(ellipse at 86% 92%, #d7e7ff 0, transparent 31%),
-    linear-gradient(135deg, #edf3ff 0%, #fafcff 53%, #fff7ed 100%);
+    radial-gradient(ellipse at 10% 8%, #68452f 0, transparent 34%),
+    radial-gradient(ellipse at 91% 19%, #80512d 0, transparent 26%),
+    radial-gradient(ellipse at 86% 94%, #50342c 0, transparent 32%),
+    linear-gradient(135deg, #2c211d 0%, #211a19 55%, #30211c 100%);
 }
 .page-shell::before {
   position: absolute;
@@ -44,7 +44,7 @@ button { cursor: pointer; }
   inset: 0;
   content: "";
   pointer-events: none;
-  background-image: radial-gradient(#3968b10d .8px, transparent .8px);
+  background-image: radial-gradient(#f6d8b20d .8px, transparent .8px);
   background-size: 22px 22px;
   mask-image: linear-gradient(135deg, #000 0%, transparent 55%, #000 100%);
 }
@@ -55,11 +55,11 @@ button { cursor: pointer; }
   right: max(-105px, calc((100vw - 1180px) / 2 - 145px));
   width: 290px;
   height: 290px;
-  border: 1px solid #f2b85e59;
+  border: 1px solid #edbd7960;
   border-radius: 50%;
   content: "";
   pointer-events: none;
-  box-shadow: 0 0 0 24px #f2b85e12, 0 0 0 51px #f2b85e0b;
+  box-shadow: 0 0 0 24px #edbd7915, 0 0 0 51px #edbd790b;
 }
 .auth-layout {
   position: relative;
@@ -180,7 +180,7 @@ button { cursor: pointer; }
   .welcome-copy h1 { font-size: 42px; }
 }
 @media (max-width: 640px) {
-  .page-shell { display: block; padding: 0; background: radial-gradient(ellipse at 100% 0, #e9f0ff 0, transparent 35%), #fff; }
+  .page-shell { display: block; padding: 18px 12px; background: radial-gradient(ellipse at 100% 0, #79502f 0, transparent 38%), radial-gradient(ellipse at 0 100%, #58382c 0, transparent 40%), #241b19; }
   .auth-layout { display: block; min-height: 100vh; border: 0; border-radius: 0; box-shadow: none; }
   .welcome-panel { display: none; }
   .form-panel { display: block; padding: 27px 24px 32px; }
