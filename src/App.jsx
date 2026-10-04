@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { GoogleLogin } from "@react-oauth/google";
+import khojoMark from "./assets/khojo-mark.svg";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8081";
 const roles = [
@@ -107,7 +108,7 @@ function App({ googleEnabled }) {
       <section className="auth-layout" aria-label="Khojo account access">
         <aside className="welcome-panel">
           <a className="brand" href="/" aria-label="Khojo home">
-            <img alt="" className="brand-icon" src="/src/assets/khojo-mark.svg" />
+            <img alt="" className="brand-icon" src={khojoMark} />
             <span className="brand-copy"><strong>KHOJO</strong><small>HAR DUKAAN, AAPKE PHONE PAR</small></span>
           </a>
           <div className="welcome-copy">
@@ -127,7 +128,7 @@ function App({ googleEnabled }) {
         <section className="form-panel">
           <div className="form-wrap">
             <div className="mobile-brand">
-              <img alt="" className="brand-icon" src="/src/assets/khojo-mark.svg" />
+              <img alt="" className="brand-icon" src={khojoMark} />
               <span className="brand-copy"><strong>KHOJO</strong><small>HAR DUKAAN, AAPKE PHONE PAR</small></span>
             </div>
             <div className="form-heading">
