@@ -20,7 +20,9 @@ async function request(path, body) {
 
   const result = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(result.detail || result.message || "Something went wrong. Please try again.");
+    const error = new Error(result.detail || result.message || "Something went wrong. Please try again.");
+    error.status = response.status;
+    throw error;
   }
   return result;
 }
@@ -39,8 +41,13 @@ function App({ googleEnabled }) {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState(null);
   const [signedInUser, setSignedInUser] = useState(null);
+  const [duplicateAccount, setDuplicateAccount] = useState("");
 
   const isSignup = mode === "signup";
+
+  function isDuplicateError(error) {
+    return error.status === 409 || /already\s*(exists|registered|in use|taken)|account.*exists|duplicate|email.*exist|phone.*exist/i.test(error.message);
+  }
 
   async function completeSignIn(result) {
     sessionStorage.setItem("khojo-token", result.token);
@@ -56,7 +63,11 @@ function App({ googleEnabled }) {
       if (result) await completeSignIn(result);
       return result;
     } catch (error) {
-      setNotice({ type: "error", text: error.message });
+      if (isSignup && isDuplicateError(error)) {
+        setDuplicateAccount(method === "phone" ? "mobile number" : "email address");
+      } else {
+        setNotice({ type: "error", text: error.message });
+      }
       return null;
     } finally {
       setBusy(false);
@@ -99,6 +110,7 @@ function App({ googleEnabled }) {
   function switchMode(nextMode) {
     setMode(nextMode);
     setNotice(null);
+    setDuplicateAccount("");
     setCodeSent(false);
     setCode("");
   }
@@ -115,6 +127,18 @@ function App({ googleEnabled }) {
             <span className="eyebrow">A better way to find</span>
             <h1>Good things<br />are closer than<br /><em>you think.</em></h1>
             <p>Your local marketplace for the things you love and the people behind them.</p>
+          </div>
+          <div className="marketplace-preview" aria-label="Shop local favorites">
+            <div className="preview-heading">
+              <span>THE NEIGHBORHOOD EDIT</span>
+              <span aria-hidden="true">✳</span>
+            </div>
+            <div className="preview-products">
+              <div className="preview-product produce"><span aria-hidden="true">🍋</span><small>Fresh picks</small></div>
+              <div className="preview-product homeware"><span aria-hidden="true">🪴</span><small>Home & living</small></div>
+              <div className="preview-product treats"><span aria-hidden="true">🥐</span><small>Local treats</small></div>
+            </div>
+            <p>Little finds. Lovely makers. Just around the corner.</p>
           </div>
           <div className="welcome-footer">
             <span className="status-dot" />
@@ -220,6 +244,17 @@ function App({ googleEnabled }) {
           </div>
         </section>
       </section>
+      {duplicateAccount && (
+        <div className="dialog-backdrop" onClick={() => setDuplicateAccount("")}>
+          <section aria-labelledby="duplicate-title" aria-modal="true" className="duplicate-dialog" onClick={(event) => event.stopPropagation()} role="dialog">
+            <span className="dialog-icon" aria-hidden="true">✓</span>
+            <h2 id="duplicate-title">You’re already on Khojo</h2>
+            <p>An account with this {duplicateAccount} already exists. Sign in to continue shopping.</p>
+            <button className="primary-button" onClick={() => switchMode("login")} type="button">Sign in instead<span aria-hidden="true">↗</span></button>
+            <button className="dialog-dismiss" onClick={() => setDuplicateAccount("")} type="button">Try another {duplicateAccount}</button>
+          </section>
+        </div>
+      )}
     </main>
   );
 }
