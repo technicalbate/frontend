@@ -20,7 +20,11 @@ async function request(path, body) {
 
   const result = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const error = new Error(result.detail || result.message || "Something went wrong. Please try again.");
+    const fallbackMessage =
+      path === "/email/send-code" && response.status === 502
+        ? "The email verification service is unavailable. Please try again later or contact support."
+        : "Something went wrong. Please try again.";
+    const error = new Error(result.detail || result.message || fallbackMessage);
     error.status = response.status;
     throw error;
   }
@@ -37,6 +41,12 @@ function App({ googleEnabled }) {
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
   const [codeSent, setCodeSent] = useState(false);
+  const [signupCodeSent, setSignupCodeSent] = useState(false);
+  const [signupCode, setSignupCode] = useState("");
+  const [recoveringPassword, setRecoveringPassword] = useState(false);
+  const [recoveryCodeSent, setRecoveryCodeSent] = useState(false);
+  const [recoveryCode, setRecoveryCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
   const [role, setRole] = useState("USER");
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState(null);
@@ -76,13 +86,25 @@ function App({ googleEnabled }) {
 
   function submitEmail(event) {
     event.preventDefault();
+    if (recoveringPassword) return resetPassword(event);
+    if (isSignup && !signupCodeSent) return sendSignupCode();
     return perform(() =>
       request(isSignup ? "/register" : "/login", {
-        ...(isSignup ? { name, role, adminCode } : {}),
+        ...(isSignup ? { name, role, adminCode, code: signupCode } : {}),
         email,
         password,
       }),
     );
+  }
+
+  function sendSignupCode() {
+    return perform(async () => {
+      await request("/email/send-code", { email });
+      setSignupCodeSent(true);
+      setSignupCode("");
+      setNotice({ type: "info", text: `A verification code was sent to ${email}. Check your inbox and enter the code to finish creating your account.` });
+      return null;
+    });
   }
 
   function sendCode() {
@@ -96,7 +118,47 @@ function App({ googleEnabled }) {
 
   function verifyCode(event) {
     event.preventDefault();
-    return perform(() => request("/phone/verify-code", { phone, code, name, role, adminCode }));
+    if (recoveringPassword) return resetPassword(event);
+    return perform(() => request("/phone/verify-code", { phone, code, name, role, adminCode, signup: isSignup }));
+  }
+
+  function switchMethod(nextMethod) {
+    setMethod(nextMethod);
+    if (recoveringPassword) {
+      setRecoveryCodeSent(false);
+      setRecoveryCode("");
+    }
+    setNotice(null);
+  }
+
+  function sendRecoveryCode() {
+    const identifier = method === "email" ? email : phone;
+    const channel = method === "email" ? "EMAIL" : "PHONE";
+    return perform(async () => {
+      await request("/password/send-code", { channel, identifier });
+      setRecoveryCodeSent(true);
+      setNotice({
+        type: "success",
+        text: `If an account exists for that ${method === "email" ? "email" : "mobile number"}, a reset code is on its way.`,
+      });
+      return null;
+    });
+  }
+
+  function resetPassword(event) {
+    event.preventDefault();
+    const identifier = method === "email" ? email : phone;
+    const channel = method === "email" ? "EMAIL" : "PHONE";
+    return perform(async () => {
+      await request("/password/reset", { channel, identifier, code: recoveryCode, password: newPassword });
+      setRecoveringPassword(false);
+      setRecoveryCodeSent(false);
+      setRecoveryCode("");
+      setPassword("");
+      setNewPassword("");
+      setNotice({ type: "success", text: "Your password has been updated. You can now sign in." });
+      return null;
+    });
   }
 
   function googleSignIn(response) {
@@ -109,10 +171,14 @@ function App({ googleEnabled }) {
 
   function switchMode(nextMode) {
     setMode(nextMode);
+    setRecoveringPassword(false);
+    setRecoveryCodeSent(false);
     setNotice(null);
     setDuplicateAccount("");
     setCodeSent(false);
     setCode("");
+    setSignupCodeSent(false);
+    setSignupCode("");
   }
 
   return (
@@ -156,22 +222,54 @@ function App({ googleEnabled }) {
               <span className="brand-copy"><strong>KHOJO</strong><small>HAR DUKAAN, AAPKE PHONE PAR</small></span>
             </div>
             <div className="form-heading">
-              <span className="eyebrow">{isSignup ? "YOUR NEXT CHAPTER STARTS HERE" : "WELCOME BACK"}</span>
-              <h2>{isSignup ? "Create your account" : "Sign in to Khojo"}</h2>
-              <p>{isSignup ? "It only takes a moment to get started." : "Pick up right where you left off."}</p>
+              <span className="eyebrow">{recoveringPassword ? "ACCOUNT RECOVERY" : isSignup ? "YOUR NEXT CHAPTER STARTS HERE" : "WELCOME BACK"}</span>
+              <h2>{recoveringPassword ? "Reset your password" : isSignup ? "Create your account" : "Sign in to Khojo"}</h2>
+              <p>{recoveringPassword ? "We’ll send a secure code to your email or mobile." : isSignup ? "It only takes a moment to get started." : "Pick up right where you left off."}</p>
             </div>
 
-            <div className="mode-switch" role="tablist" aria-label="Account action">
+            {!recoveringPassword && <div className="mode-switch" role="tablist" aria-label="Account action">
               <button className={mode === "login" ? "selected" : ""} onClick={() => switchMode("login")} role="tab" aria-selected={mode === "login"} type="button">Sign in</button>
               <button className={mode === "signup" ? "selected" : ""} onClick={() => switchMode("signup")} role="tab" aria-selected={mode === "signup"} type="button">Create account</button>
-            </div>
+            </div>}
 
-            <div className="method-switch" aria-label="Choose a sign-in method">
-              <button className={method === "email" ? "selected" : ""} onClick={() => { setMethod("email"); setNotice(null); }} type="button">Email</button>
-              <button className={method === "phone" ? "selected" : ""} onClick={() => { setMethod("phone"); setNotice(null); }} type="button">Mobile number</button>
-            </div>
+            {!isSignup && <div className="method-switch" aria-label={recoveringPassword ? "Choose a recovery method" : "Choose a sign-in method"}>
+              <button className={method === "email" ? "selected" : ""} onClick={() => switchMethod("email")} type="button">Email</button>
+              <button className={method === "phone" ? "selected" : ""} onClick={() => switchMethod("phone")} type="button">Mobile number</button>
+            </div>}
 
-            {method === "email" ? (
+            {recoveringPassword ? (
+              <form className="auth-form" onSubmit={recoveryCodeSent ? resetPassword : (event) => { event.preventDefault(); sendRecoveryCode(); }}>
+                <label className="field-label" htmlFor={method === "email" ? "recovery-email" : "recovery-phone"}>{method === "email" ? "Email address" : "Mobile number"}</label>
+                <input
+                  autoComplete={method === "email" ? "email" : "tel"}
+                  id={method === "email" ? "recovery-email" : "recovery-phone"}
+                  onChange={(event) => {
+                    if (recoveryCodeSent) {
+                      setRecoveryCodeSent(false);
+                      setRecoveryCode("");
+                    }
+                    if (method === "email") setEmail(event.target.value);
+                    else setPhone(event.target.value);
+                  }}
+                  placeholder={method === "email" ? "you@example.com" : "+919876543210"}
+                  required
+                  type={method === "email" ? "email" : "tel"}
+                  value={method === "email" ? email : phone}
+                />
+                {method === "phone" && <p className="field-hint">Include your country code, for example +91.</p>}
+                {recoveryCodeSent && <>
+                  <label className="field-label" htmlFor="recovery-code">Reset code</label>
+                  <input autoComplete="one-time-code" id="recovery-code" inputMode="numeric" maxLength="6" onChange={(event) => setRecoveryCode(event.target.value.replace(/\D/g, ""))} placeholder="6-digit code" required value={recoveryCode} />
+                  <label className="field-label" htmlFor="new-password">New password</label>
+                  <input autoComplete="new-password" id="new-password" minLength="8" onChange={(event) => setNewPassword(event.target.value)} placeholder="At least 8 characters" required type="password" value={newPassword} />
+                </>}
+                <button className="primary-button" disabled={busy || !(method === "email" ? email : phone)} type="submit">
+                  {busy ? "Please wait…" : recoveryCodeSent ? "Update password" : "Send reset code"}<span aria-hidden="true">↗</span>
+                </button>
+                {recoveryCodeSent && <button className="text-button" disabled={busy} onClick={sendRecoveryCode} type="button">Resend code</button>}
+                <button className="text-button" onClick={() => { setRecoveringPassword(false); setRecoveryCodeSent(false); setRecoveryCode(""); setNotice(null); }} type="button">Back to sign in</button>
+              </form>
+            ) : method === "email" ? (
               <form className="auth-form" onSubmit={submitEmail}>
                 {isSignup && (
                   <>
@@ -180,13 +278,27 @@ function App({ googleEnabled }) {
                   </>
                 )}
                 <label className="field-label" htmlFor="email">Email address</label>
-                <input id="email" autoComplete="email" onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" required type="email" value={email} />
+                <input id="email" autoComplete="email" onChange={(event) => {
+                  if (isSignup && signupCodeSent) {
+                    setSignupCodeSent(false);
+                    setSignupCode("");
+                    setNotice(null);
+                  }
+                  setEmail(event.target.value);
+                }} placeholder="you@example.com" required type="email" value={email} />
                 <label className="field-label" htmlFor="password">Password</label>
                 <input id="password" autoComplete={isSignup ? "new-password" : "current-password"} minLength={isSignup ? 8 : undefined} onChange={(event) => setPassword(event.target.value)} placeholder="At least 8 characters" required type="password" value={password} />
+                {!isSignup && <button className="forgot-link" onClick={() => { setRecoveringPassword(true); setRecoveryCodeSent(false); setNotice(null); }} type="button">Forgot password?</button>}
                 {isSignup && <RolePicker role={role} onChange={setRole} />}
                 {isSignup && role === "ADMIN" && <AdminCodeField onChange={setAdminCode} value={adminCode} />}
+                {isSignup && signupCodeSent && <>
+                  <label className="field-label" htmlFor="signup-code">Email verification code</label>
+                  <input autoComplete="one-time-code" id="signup-code" inputMode="numeric" maxLength="6" onChange={(event) => setSignupCode(event.target.value.replace(/\D/g, ""))} placeholder="6-digit code" required value={signupCode} />
+                  <p className="field-hint">The code expires in 5 minutes. Check your spam folder if you don’t see the email.</p>
+                  <button className="text-button" disabled={busy} onClick={sendSignupCode} type="button">Resend code</button>
+                </>}
                 <button className="primary-button" disabled={busy} type="submit">
-                  {busy ? "Please wait…" : isSignup ? "Create account" : "Sign in"}
+                  {busy ? "Please wait…" : isSignup ? signupCodeSent ? "Verify code & create account" : "Send verification code" : "Sign in"}
                   {!busy && <span aria-hidden="true">↗</span>}
                 </button>
               </form>
@@ -201,6 +313,7 @@ function App({ googleEnabled }) {
                 <label className="field-label" htmlFor="phone">Mobile number</label>
                 <input id="phone" autoComplete="tel" onChange={(event) => { setPhone(event.target.value); setCodeSent(false); }} placeholder="+919876543210" required type="tel" value={phone} />
                 <p className="field-hint">Include your country code, for example +91.</p>
+                {!isSignup && <button className="forgot-link" onClick={() => { setRecoveringPassword(true); setRecoveryCodeSent(false); setNotice(null); }} type="button">Forgot password?</button>}
                 {isSignup && <RolePicker role={role} onChange={setRole} />}
                 {isSignup && role === "ADMIN" && <AdminCodeField onChange={setAdminCode} value={adminCode} />}
                 {codeSent && (
@@ -217,8 +330,8 @@ function App({ googleEnabled }) {
               </form>
             )}
 
-            <div className="divider"><span>or continue with</span></div>
-            {googleEnabled ? (
+            {!recoveringPassword && <div className="divider"><span>or continue with</span></div>}
+            {!recoveringPassword && googleEnabled ? (
               <div className="google-button">
                 <GoogleLogin
                   onError={() => setNotice({ type: "error", text: "Google sign-in could not be started. Please try again." })}
@@ -230,9 +343,9 @@ function App({ googleEnabled }) {
                   width="400"
                 />
               </div>
-            ) : (
+            ) : !recoveringPassword ? (
               <p className="provider-hint">Google sign-in needs a Google OAuth client ID. Configure it in the frontend environment.</p>
-            )}
+            ) : null}
             {notice && <p className={`notice ${notice.type}`} role="status">{notice.text}</p>}
             {signedInUser && (
               <div className="account-card" aria-live="polite">

@@ -9,4 +9,4 @@ React/Vite sign-in and sign-up interface for email/password, Google OAuth, and m
 3. Allow `http://localhost:5173` as an authorized JavaScript origin in the Google OAuth client.
 4. Run `npm install` and `npm run dev`.
 
-The backend verifies Google credentials and Twilio SMS codes and stores registered users. See the backend repository for its setup and required environment variables.
+The backend verifies Google credentials and Twilio SMS codes, sends password recovery codes by email or SMS, and stores registered users. See the backend repository for its setup and required environment variables.
