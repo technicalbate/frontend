@@ -103,6 +103,17 @@ function App({ googleEnabled }) {
     setCode("");
   }
 
+  function signOut() {
+    sessionStorage.removeItem("khojo-token");
+    setSignedInUser(null);
+    setNotice(null);
+    switchMode("login");
+  }
+
+  if (signedInUser) {
+    return <Dashboard user={signedInUser} onSignOut={signOut} />;
+  }
+
   return (
     <main className="page-shell">
       <section className="auth-layout" aria-label="Khojo account access">
@@ -210,15 +221,67 @@ function App({ googleEnabled }) {
               <p className="provider-hint">Google sign-in needs a Google OAuth client ID. Configure it in the frontend environment.</p>
             )}
             {notice && <p className={`notice ${notice.type}`} role="status">{notice.text}</p>}
-            {signedInUser && (
-              <div className="account-card" aria-live="polite">
-                <span className="account-check">✓</span>
-                <span><strong>{signedInUser.name}</strong><small>{signedInUser.role} account · signed in</small></span>
-              </div>
-            )}
             <p className="terms">By continuing, you agree to Khojo’s <a href="#terms">Terms</a> and <a href="#privacy">Privacy Policy</a>.</p>
           </div>
         </section>
+      </section>
+    </main>
+  );
+}
+
+function Dashboard({ user, onSignOut }) {
+  const role = String(user.role || "").toUpperCase();
+  const isOwner = role === "OWNER";
+  const isAdmin = role === "ADMIN";
+  const title = isOwner ? "Shopkeeper dashboard" : isAdmin ? "Admin dashboard" : "User dashboard";
+  const description = isOwner
+    ? "Manage your storefront and stay connected with your customers."
+    : isAdmin
+      ? "Your Khojo platform account is ready."
+      : "Discover nearby shops and keep track of the things you love.";
+  const cards = isOwner
+    ? [
+        { title: "Your storefront", description: "Your shop management tools will be available here." },
+        { title: "Products", description: "Keep your products and availability up to date." },
+        { title: "Orders", description: "Review and manage customer orders." },
+      ]
+    : isAdmin
+      ? [
+          { title: "Platform overview", description: "Your platform management tools will be available here." },
+          { title: "Accounts", description: "Manage Khojo accounts and access." },
+          { title: "Marketplace", description: "Keep an eye on marketplace activity." },
+        ]
+      : [
+          { title: "Explore shops", description: "Find local stores and discover what is nearby." },
+          { title: "Saved places", description: "Your favorite shops will be easy to find here." },
+          { title: "Your orders", description: "Keep track of your marketplace orders." },
+        ];
+
+  return (
+    <main className="dashboard-shell">
+      <header className="dashboard-header">
+        <a className="dashboard-brand" href="/" aria-label="Khojo home">
+          <img alt="" className="brand-icon" src={khojoMark} />
+          <span className="brand-copy"><strong>KHOJO</strong><small>HAR DUKAAN, AAPKE PHONE PAR</small></span>
+        </a>
+        <div className="dashboard-user">
+          <span><strong>{user.name}</strong><small>{title}</small></span>
+          <button className="dashboard-signout" onClick={onSignOut} type="button">Sign out</button>
+        </div>
+      </header>
+      <section className="dashboard-content" aria-labelledby="dashboard-title">
+        <span className="eyebrow">{title.toUpperCase()}</span>
+        <h1 id="dashboard-title">Welcome back, {user.name}</h1>
+        <p className="dashboard-description">{description}</p>
+        <div className="dashboard-cards">
+          {cards.map((card) => (
+            <article className="dashboard-card" key={card.title}>
+              <span className="dashboard-card-mark" aria-hidden="true">✳</span>
+              <h2>{card.title}</h2>
+              <p>{card.description}</p>
+            </article>
+          ))}
+        </div>
       </section>
     </main>
   );
